@@ -1,47 +1,205 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>SNOT-22 Decision Tree Demo</title>
+    <div style="width:100%; margin-bottom:10px;">
+    <img src="bTree_12_best_structure_flush.jpg" alt="Full structure of Depth-12 CART"
+        onclick="openModal()"
+        style="width:100%; height:auto; display:block; cursor:zoom-in;">
+    </div>
+    <p style="text-align:center; font-size:12px; color:gray; margin-top:-10px;">
+    Full structure of the Depth-12 CART. Each horizontal split represents a decision node. There are 408 total endpoints at the bottom. Each endpoint is color coded with the scale from blue (low) to red (high). Click to zoom.
+    </p>
+    <div id="imgModal" onclick="closeModal()"
+        style="display:none; position:fixed; z-index:999; padding-top:20px;
+                left:0; top:0; width:100%; height:100%;
+                background-color:rgba(0,0,0,0.9);">
+
+        <img id="modalContent" src="bTree_12_best_structure_flush.jpg"
+            style="margin:auto; display:block; max-width:95%; max-height:90%; cursor:zoom-out;">
+
+    </div>
+    <title>SNOT-22 Decision Tree Demo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: Arial; max-width: 500px; margin: auto; padding: 20px; }
-    .question { margin-bottom: 20px; }
-    button { padding: 10px; font-size: 16px; }
-    .result { font-size: 20px; margin-top: 20px; }
-  </style>
+  body { font-family: Arial; max-width: 500px; margin: auto; padding: 20px; }
+  .question { margin-bottom: 20px; }
+  button { padding: 10px; font-size: 14px; cursor: pointer; }
+  .result { font-size: 18px; margin-top: 20px; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 15px;
+    font-size: 12px;
+  }
+
+  th, td {
+    border: 1px solid #ddd;
+    padding: 5px;
+    text-align: left;
+  }
+
+  th {
+    background-color: #f2f2f2;
+  }
+</style>
 </head>
 
 <body>
 
-<h2>SNOT-22 Estimator</h2>
-<p>Answer a few questions (0–5 scale)</p>
-
+<h2 style="font-size: 28px; text-align: center; margin-bottom: 20px;">
+  SNOT-22 Estimator
+</h2>
 <div id="app"></div>
 
 <script>
 let answers = {};
+let demographics = {};
+let started = false;
 
-// Question order (adaptive)
-function askQuestion(q) {
+const questionText = {
+  "Snot.1": "1: Need to blow nose",
+  "Snot.2": "2: Nasal blockage",
+  "Snot.3": "3: Sneezing",
+  "Snot.4": "4: Runny nose",
+  "Snot.5": "5: Cough",
+  "Snot.6": "6: Post nasal discharge",
+  "Snot.7": "7: Thick nasal discharge",
+  "Snot.8": "8: Ear fullness",
+  "Snot.9": "9: Dizziness",
+  "Snot.10": "10: Ear pain",
+  "Snot.11": "11: Facial pain/pressure",
+  "Snot.12": "12: Decreased sense of smell/taste",
+  "Snot.13": "13: Difficulty falling asleep",
+  "Snot.14": "14: Wake up at night",
+  "Snot.15": "15: Lack of good night's sleep",
+  "Snot.16": "16: Wake up tired",
+  "Snot.17": "17: Fatigue",
+  "Snot.18": "18: Reduced productivity",
+  "Snot.19": "19: Reduced concentration",
+  "Snot.20": "20: Frustrated/restless/irritable",
+  "Snot.21": "21: Sad",
+  "Snot.22": "22: Embarrassed"
+};
+
+// -------------------- IMAGE --------------------
+function openModal() {
+  document.getElementById("imgModal").style.display = "block";
+}
+
+function closeModal() {
+  document.getElementById("imgModal").style.display = "none";
+}
+
+// -------------------- DEMOGRAPHICS --------------------
+
+function showDemographics() {
   const app = document.getElementById("app");
+
   app.innerHTML = `
     <div class="question">
-      <label>${q}</label><br>
-      <input type="number" min="0" max="5" id="input">
-      <button onclick="submitAnswer('${q}')">Next</button>
+      <p><b>Demographics (Optional)</b></p>
+      <p style="font-size: 14px; color: gray;">
+        <i>Your results may be less accurate if you choose to skip.</i>
+      </p>
+
+      <label>Age:</label><br>
+      <input type="number" id="age" placeholder="Enter age"><br><br>
+
+      <label>Gender:</label><br>
+      <select id="gender">
+        <option value="NA"> </option>
+        <option value="M">Male</option>
+        <option value="F">Female</option>
+        <option value="NA">Other</option>
+        </select>
+        <br>
+        <br>
+
+      <button onclick="submitDemographics()">Continue</button>
+      <br>
+      <button onclick="skipDemographics()">Skip All</button>
     </div>
   `;
 }
 
+function submitDemographics() {
+  const age = document.getElementById("age").value;
+  const gender = document.getElementById("gender").value;
+
+  if (age) demographics["Age"] = age;
+  if (gender != "NA") demographics["Gender"] = gender;
+
+  started = true;
+  nextStep();
+}
+
+function skipDemographics() {
+  started = true;
+  nextStep();
+}
+
+// -------------------- QUESTIONS --------------------
+
+function askQuestion(q) {
+  const app = document.getElementById("app");
+
+  app.innerHTML = `
+    <div class="question">
+
+      <div style="font-size: 14px; margin-bottom: 15px;">
+        <p><b>Instructions:</b></p>
+        <p>
+        Considering how severe the problem is when you experience it and how frequently it happens,
+        please rate each item on how “bad” it is using the scale below:
+        </p>
+        <p style="margin: 5px 0;">
+        0 = No problem<br>
+        1 = Very mild problem<br>
+        2 = Mild or slight problem<br>
+        3 = Moderate problem<br>
+        4 = Severe problem<br>
+        5 = Problem as bad as it can be
+        </p>
+      </div>
+
+      <label><b>${questionText[q] || q}</b></label><br><br>
+
+      <input type="range" min="0" max="5" value="0" id="slider"
+             oninput="updateSliderValue(this.value)">
+      <div>Value: <span id="sliderValue">0</span></div>
+
+      <div style="margin-top: 15px;">
+        <button onclick="submitAnswer('${q}')"
+          style="background-color:#007BFF; color:white; border:none;">
+          Submit
+        </button>
+
+        <button onclick="restart()"
+          style="background-color:#eee; color:black; margin-left:10px;">
+          Restart
+        </button>
+      </div>
+
+    </div>
+  `;
+}
+
+function updateSliderValue(val) {
+  document.getElementById("sliderValue").innerText = val;
+}
+
 function submitAnswer(q) {
-  const val = parseFloat(document.getElementById("input").value);
-  if (isNaN(val)) return;
+  const val = parseFloat(document.getElementById("slider").value);
   answers[q] = val;
   nextStep();
 }
 
-// Decision tree logic
+// -------------------- DECISION TREE --------------------
+
 function nextStep() {
+
+  if (!started) return showDemographics();
 
   if (answers["Snot.18"] === undefined) return askQuestion("Snot.18");
 
@@ -123,19 +281,57 @@ function nextStep() {
   }
 }
 
+// -------------------- RESULT + TABLE --------------------
+
 function showResult(score) {
   const app = document.getElementById("app");
+
+  let tableRows = "";
+
+  for (let key in demographics) {
+    tableRows += `<tr><td>${key}</td><td>${demographics[key]}</td></tr>`;
+  }
+
+  for (let key in answers) {
+        const label = questionText[key] || key;
+        tableRows += `<tr><td>${label}</td><td>${answers[key]}</td></tr>`;
+  }
+
   app.innerHTML = `
-    <div class="result">
-      <p><b>Predicted SNOT-22 Score:</b> ${score}</p>
-      <p>Questions answered: ${Object.keys(answers).length}</p>
-      <button onclick="restart()">Restart</button>
+  <div class="result">
+
+    <p style="font-size:32px; font-weight:bold; text-align:center; margin-bottom:5px;">
+      ${score}
+    </p>
+    <p style="text-align:center; font-size:18px; margin-bottom:20px;">
+      Predicted SNOT-22 Score
+    </p>
+
+    <p style="text-align:center;">
+      Questions answered: ${Object.keys(answers).length}
+    </p>
+
+    <h4 style="margin-top:20px;">Your Responses</h4>
+    <table>
+      <tr><th>Item</th><th>Value</th></tr>
+      ${tableRows}
+    </table>
+
+    <div style="text-align:center; margin-top:20px;">
+      <button onclick="restart()"
+        style="background-color:#007BFF; color:white; border:none;">
+        Restart
+      </button>
     </div>
-  `;
+
+  </div>
+`;
 }
 
 function restart() {
   answers = {};
+  demographics = {};
+  started = false;
   nextStep();
 }
 
