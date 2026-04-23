@@ -52,6 +52,8 @@
 </h2>
 <div id="app"></div>
 
+<script src="rules.js"></script>
+
 <script>
 let answers = {};
 let demographics = {};
@@ -141,6 +143,8 @@ function skipDemographics() {
 
 // -------------------- QUESTIONS --------------------
 
+console.log(rules);
+
 function askQuestion(q) {
   const app = document.getElementById("app");
 
@@ -197,88 +201,63 @@ function submitAnswer(q) {
 
 // -------------------- DECISION TREE --------------------
 
-function nextStep() {
+function getNextQuestion() {
+  for (let rule of rules) {
 
-  if (!started) return showDemographics();
+    // Check if rule is still possible
+    let possible = rule.conditions.every(([q, op, val]) => {
+      if (answers[q] === undefined) return true; // ✅ allow unknowns
 
-  if (answers["Snot.18"] === undefined) return askQuestion("Snot.18");
+      if (op === "<") return answers[q] < val;
+      if (op === ">=") return answers[q] >= val;
+      if (op === "<=") return answers[q] <= val;
+      if (op === ">") return answers[q] > val;
+      if (op === "==") return answers[q] === val;
 
-  if (answers["Snot.18"] < 2) {
+      return false;
+    });
 
-    if (answers["Snot.7"] === undefined) return askQuestion("Snot.7");
-
-    if (answers["Snot.7"] < 2) {
-
-      if (answers["Snot.15"] === undefined) return askQuestion("Snot.15");
-
-      if (answers["Snot.15"] < 2) {
-
-        if (answers["Snot.1"] === undefined) return askQuestion("Snot.1");
-
-        if (answers["Snot.1"] < 1) return showResult(5.8);
-        else return showResult(13.5);
-
-      } else {
-
-        if (answers["Snot.1"] === undefined) return askQuestion("Snot.1");
-        if (answers["Snot.8"] === undefined) return askQuestion("Snot.8");
-
-        if (answers["Snot.1"] < 2 && answers["Snot.8"] < 1) return showResult(18.2);
-        else return showResult(27.6);
-      }
-
-    } else {
-
-      if (answers["Snot.15"] === undefined) return askQuestion("Snot.15");
-      if (answers["Snot.1"] === undefined) return askQuestion("Snot.1");
-
-      if (answers["Snot.15"] < 2 && answers["Snot.1"] < 3) return showResult(19.4);
-      else return showResult(28.9);
-    }
-
-  } else {
-
-    if (answers["Snot.7"] === undefined) return askQuestion("Snot.7");
-
-    if (answers["Snot.7"] < 2) {
-
-      if (answers["Snot.16"] === undefined) return askQuestion("Snot.16");
-
-      if (answers["Snot.16"] < 4) {
-
-        if (answers["Snot.1"] === undefined) return askQuestion("Snot.1");
-
-        if (answers["Snot.1"] < 2) return showResult(26.9);
-        else return showResult(36.2);
-
-      } else {
-
-        if (answers["Snot.19"] === undefined) return askQuestion("Snot.19");
-
-        if (answers["Snot.19"] < 4) return showResult(41.8);
-        else return showResult(53.5);
-      }
-
-    } else {
-
-      if (answers["Snot.16"] === undefined) return askQuestion("Snot.16");
-
-      if (answers["Snot.16"] < 4) {
-
-        if (answers["Snot.15"] === undefined) return askQuestion("Snot.15");
-
-        if (answers["Snot.15"] < 3) return showResult(41.2);
-        else return showResult(52.4);
-
-      } else {
-
-        if (answers["Snot.10"] === undefined) return askQuestion("Snot.10");
-
-        if (answers["Snot.10"] < 2) return showResult(58.4);
-        else return showResult(73.1);
+    if (possible) {
+      // Find first unanswered question in this rule
+      for (let [q] of rule.conditions) {
+        if (answers[q] === undefined) {
+          return q;
+        }
       }
     }
   }
+
+  return null;
+}
+
+function evaluateTree(answers) {
+  for (let rule of rules) {
+
+    let match = rule.conditions.every(([q, op, val]) => {
+      if (answers[q] === undefined) return false; // must be known
+
+      if (op === "<") return answers[q] < val;
+      if (op === ">=") return answers[q] >= val;
+
+      return false;
+    });
+
+    if (match) return rule.value;
+  }
+
+  return null;
+}
+
+function nextStep() {
+  if (!started) return showDemographics();
+
+  const result = evaluateTree(answers);
+  if (result !== null) return showResult(result);
+
+  const nextQ = getNextQuestion();
+  if (nextQ) return askQuestion(nextQ);
+
+  showResult("Unable to compute");
 }
 
 // -------------------- RESULT + TABLE --------------------
